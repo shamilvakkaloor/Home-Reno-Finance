@@ -1,0 +1,23 @@
+rules_version = '2';
+
+// Home Reno Finance — Storage Rules
+// Attachments (receipts, bill photos) live under /attachments/{entityType}/{entityId}/{fileName}
+// Only active, signed-in family members may read or upload; nothing is public.
+
+function isActiveUser() {
+  return request.auth != null
+    && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+    && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.isActive == true;
+}
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /attachments/{entityType}/{entityId}/{fileName} {
+      allow read: if isActiveUser();
+      allow write: if isActiveUser()
+        && request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*|application/pdf');
+      allow delete: if false;
+    }
+  }
+}

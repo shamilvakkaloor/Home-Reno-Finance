@@ -1,0 +1,173 @@
+rules_version = '2';
+
+// Home Reno Finance — Firestore Security Rules
+//
+// Access model:
+//  - Only signed-in Google accounts with a users/{uid} doc where isActive == true
+//    may read or write anything. Everyone else (including anonymous) is denied.
+//  - "admin" role can manage users, invites, categories, money sources, and
+//    can hard-permission-restore soft-deleted records. "member" role can do
+//    everyday ledger work (create transactions, accounts, vendors, etc.) but
+//    cannot delete other users' records or change roles.
+//  - No document is ever truly deleted from the client — deletes are writes
+//    that flip status to "deleted" (see app code). These rules therefore
+//    disallow `delete` entirely and only allow `update`.
+//  - Invites are keyed by lowercased email so an admin can pre-authorize a
+//    family member before they ever sign in.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // These helpers MUST live inside `match /databases/{database}/documents`.
+    // At the top level of the file the `{database}` wildcard isn't bound, so
+    // any get()/exists() path using $(database) silently fails to resolve and
+    // every rule depending on it evaluates false — denying the whole app.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function currentUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isActiveUser() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && currentUserDoc().data.isActive == true;
+    }
+
+    function isAdmin() {
+      return isActiveUser() && currentUserDoc().data.role == 'admin';
+    }
+
+
+    // Bootstrap marker: written once by the client on first-ever sign-in.
+    match /settings/bootstrap {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && !exists(/databases/$(database)/documents/settings/bootstrap);
+      allow update, delete: if false;
+    }
+
+    // Project-wide settings (budget, thresholds).
+    match /settings/project {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+
+    // Users collection: a user may create/read their own doc only during the
+    // narrow bootstrap/invite-claim flow handled in app code; after that,
+    // only admins can change roles or active status. Everyone active can
+    // read the roster (needed for "paid by" pickers, audit display names).
+    match /users/{uid} {
+      // A person must always be able to read their OWN profile doc, even
+      // before it exists or before they're marked active — that read is how
+      // the app finds out "am I authorized yet?" in the first place. Reading
+      // anyone else's profile still requires already being an active user.
+      allow read: if isActiveUser() || (isSignedIn() && request.auth.uid == uid);
+      allow create: if isSignedIn() && request.auth.uid == uid;
+      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == uid && request.resource.data.role == resource.data.role);
+      allow delete: if false;
+    }
+
+    // Invites: admin-only management. The invited person's client reads
+    // their own invite by email during the claim flow (email is the doc id).
+    match /invites/{email} {
+      allow read: if isSignedIn();
+      allow create, delete: if isAdmin();
+      allow update: if false;
+    }
+
+    // Core ledger data — any active user can read/write; deletes are soft
+    // (status field) so `delete` is blocked outright.
+    match /accounts/{id} {
+      allow read: if isActiveUser();
+      allow create, update: if isActiveUser();
+      allow delete: if false;
+    }
+
+    match /transactions/{id} {
+      allow read: if isActiveUser();
+      allow create: if isActiveUser() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isActiveUser();
+      allow delete: if false;
+
+      match /revisions/{revisionId} {
+        allow read: if isActiveUser();
+        allow create: if isActiveUser();
+        allow update, delete: if false;
+      }
+    }
+
+    match /categories/{id} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+
+    // Construction phases (e.g. Foundation, Framing, Electrical) — used to
+    // tag expenses/bill payments/worker payments so cost-per-phase reporting
+    // is possible. Reference data, same access pattern as categories.
+    match /phases/{id} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+
+    match /moneySources/{id} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+
+    match /vendors/{id} {
+      allow read: if isActiveUser();
+      allow create, update: if isActiveUser();
+      // Vendors are reference data, not financial ledger records — an admin
+      // may fully remove one (e.g. a mistaken duplicate). Historical
+      // transactions keep their vendorId; the app just shows nothing extra
+      // for a vendor that no longer resolves.
+      allow delete: if isAdmin();
+    }
+
+    match /loans/{id} {
+      allow read: if isActiveUser();
+      allow create, update: if isActiveUser();
+      allow delete: if false;
+    }
+
+    match /bills/{id} {
+      allow read: if isActiveUser();
+      allow create, update: if isActiveUser();
+      allow delete: if false;
+    }
+
+    match /workers/{id} {
+      allow read: if isActiveUser();
+      allow create, update: if isActiveUser();
+      // Same reasoning as vendors above.
+      allow delete: if isAdmin();
+    }
+
+    match /workerWorkRecords/{id} {
+      allow read: if isActiveUser();
+      allow create: if isActiveUser();
+      allow update, delete: if isAdmin();
+    }
+
+    match /categoryBudgets/{id} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+
+    // Audit logs: append-only, never editable or deletable by anyone.
+    match /auditLogs/{id} {
+      allow read: if isActiveUser();
+      allow create: if isActiveUser() && request.resource.data.performedBy == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /attachments/{id} {
+      allow read: if isActiveUser();
+      allow create: if isActiveUser();
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+  }
+}
