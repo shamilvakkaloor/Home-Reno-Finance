@@ -78,12 +78,19 @@ export async function signInWithGoogle() {
       isActive: true,
       createdAt: serverTimestamp(),
     });
-    await deleteDoc(invRef);
+    try {
+      await deleteDoc(invRef);
+    } catch (err) {
+      // The user account above was already created successfully — a failure
+      // to clean up the now-claimed invite doc shouldn't surface as a
+      // sign-in failure to the person who just joined.
+      console.error("Failed to remove claimed invite", err);
+    }
     return;
   }
 
   // First-ever sign-in for this project becomes admin automatically.
-  const isFirst = await claimBootstrap();
+  const isFirst = await claimBootstrap(cred.user.uid);
   if (isFirst) {
     await setDoc(ref, {
       email: cred.user.email || "",
@@ -96,12 +103,12 @@ export async function signInWithGoogle() {
   }
 }
 
-async function claimBootstrap() {
+async function claimBootstrap(uid) {
   try {
     const ref = bootstrapDoc();
     const snap = await getDoc(ref);
     if (!snap.exists()) {
-      await setDoc(ref, { claimed: true, claimedAt: serverTimestamp() });
+      await setDoc(ref, { claimed: true, claimedAt: serverTimestamp(), claimedBy: uid });
       return true;
     }
     return false;

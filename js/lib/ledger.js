@@ -80,8 +80,14 @@ export function reconcile(accounts, transactions) {
   const loanRepaid = active
     .filter((t) => t.type === "loan_repayment")
     .reduce((s, t) => s + t.amount, 0);
+  // Adjustments move money in/out of an account directly (see
+  // computeAccountBalances above), so they must be folded into the expected
+  // total too — otherwise every adjustment shows up as permanent "drift".
+  const adjusted = active
+    .filter((t) => t.type === "adjustment")
+    .reduce((s, t) => s + t.amount, 0);
   const openingSum = accounts.reduce((s, a) => s + a.openingBalance, 0);
-  const expected = openingSum + received - spent - loanRepaid;
+  const expected = openingSum + received - spent - loanRepaid + adjusted;
   const drift = Math.round((held - expected) * 100) / 100;
   return { held, expected, drift, balanced: Math.abs(drift) < 0.01 };
 }

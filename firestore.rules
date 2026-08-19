@@ -44,7 +44,9 @@ service cloud.firestore {
     // Bootstrap marker: written once by the client on first-ever sign-in.
     match /settings/bootstrap {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && !exists(/databases/$(database)/documents/settings/bootstrap);
+      allow create: if isSignedIn()
+        && !exists(/databases/$(database)/documents/settings/bootstrap)
+        && request.resource.data.claimedBy == request.auth.uid;
       allow update, delete: if false;
     }
 
@@ -64,7 +66,32 @@ service cloud.firestore {
       // the app finds out "am I authorized yet?" in the first place. Reading
       // anyone else's profile still requires already being an active user.
       allow read: if isActiveUser() || (isSignedIn() && request.auth.uid == uid);
-      allow create: if isSignedIn() && request.auth.uid == uid;
+
+      // A user may only self-create their OWN profile doc, and only by one
+      // of the two paths the app actually offers: claiming a pending invite
+      // (role must match exactly what the admin set on that invite), or
+      // being the one account that just claimed the one-time bootstrap
+      // marker below (how the very first admin gets created). Without this,
+      // checking only `request.auth.uid == uid` would let ANY signed-in
+      // Google account write role: "admin", isActive: true for itself —
+      // this project's Firebase config is public (it has to be, it ships in
+      // the client), so that check alone is not a real access control.
+      allow create: if isSignedIn() && request.auth.uid == uid
+        && request.resource.data.isActive == true
+        && (
+          (
+            request.resource.data.email.lower() == request.auth.token.email.lower()
+            && exists(/databases/$(database)/documents/invites/$(request.resource.data.email.lower()))
+            && request.resource.data.role == get(/databases/$(database)/documents/invites/$(request.resource.data.email.lower())).data.role
+          )
+          ||
+          (
+            request.resource.data.role == 'admin'
+            && exists(/databases/$(database)/documents/settings/bootstrap)
+            && get(/databases/$(database)/documents/settings/bootstrap).data.claimedBy == request.auth.uid
+          )
+        );
+
       allow update: if isAdmin() || (isSignedIn() && request.auth.uid == uid && request.resource.data.role == resource.data.role);
       allow delete: if false;
     }
@@ -72,8 +99,16 @@ service cloud.firestore {
     // Invites: admin-only management. The invited person's client reads
     // their own invite by email during the claim flow (email is the doc id).
     match /invites/{email} {
-      allow read: if isSignedIn();
-      allow create, delete: if isAdmin();
+      // A signed-in user may look up their OWN pending invite (by lowercased
+      // email, the doc id) during the claim flow, even before they have a
+      // users/{uid} doc yet. Browsing the whole collection — which would
+      // expose every invited family member's email and role — is admin-only.
+      allow get: if isAdmin() || (isSignedIn() && request.auth.token.email.lower() == email);
+      allow list: if isAdmin();
+      allow create: if isAdmin();
+      // The admin who sent it can cancel it; the person claiming it deletes
+      // it themselves right after sign-in (see auth.js signInWithGoogle).
+      allow delete: if isAdmin() || (isSignedIn() && request.auth.token.email.lower() == email);
       allow update: if false;
     }
 
