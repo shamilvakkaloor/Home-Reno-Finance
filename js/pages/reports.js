@@ -77,11 +77,20 @@ function paint(container) {
 
   const byCategory = {};
   for (const tx of filtered) {
-    if (tx.type !== "expense" || !tx.categoryId) continue;
+    if (tx.type !== "expense") continue;
+    if (tx.workerId) {
+      byCategory.labor = (byCategory.labor || 0) + tx.amount;
+      continue;
+    }
+    if (!tx.categoryId) continue;
     byCategory[tx.categoryId] = (byCategory[tx.categoryId] || 0) + tx.amount;
   }
   const catEntries = Object.entries(byCategory)
-    .map(([id, value]) => { const c = state.categories.find((x) => x.id === id); return { name: c ? (locale === "ml" && c.nameMl ? c.nameMl : c.name) : "Other", value }; })
+    .map(([id, value]) => {
+      if (id === "labor") return { name: "Labor", value };
+      const c = state.categories.find((x) => x.id === id);
+      return { name: c ? (locale === "ml" && c.nameMl ? c.nameMl : c.name) : "Other", value };
+    })
     .sort((a, b) => b.value - a.value);
 
   const byVendor = {};

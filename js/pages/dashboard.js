@@ -90,11 +90,17 @@ function paint(container) {
 
   const byCategory = {};
   for (const tx of filtered) {
-    if (tx.type !== "expense" || !tx.categoryId) continue;
+    if (tx.type !== "expense") continue;
+    if (tx.workerId) {
+      byCategory.labor = (byCategory.labor || 0) + tx.amount;
+      continue;
+    }
+    if (!tx.categoryId) continue;
     byCategory[tx.categoryId] = (byCategory[tx.categoryId] || 0) + tx.amount;
   }
   const catEntries = Object.entries(byCategory)
     .map(([id, value]) => {
+      if (id === "labor") return { name: "Labor", value };
       const cat = state.categories.find((c) => c.id === id);
       return { name: cat ? (locale === "ml" && cat.nameMl ? cat.nameMl : cat.name) : "Other", value };
     })
