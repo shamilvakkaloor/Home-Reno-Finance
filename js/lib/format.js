@@ -6,6 +6,20 @@ export function formatINR(amount) {
   return inrFormatter.format(amount || 0);
 }
 
+/**
+ * Same figure as `formatINR`, but as HTML with the ₹ symbol and any leading
+ * sign wrapped so CSS can set them one step smaller and lighter than the
+ * digits. Display only — anything that ends up in a CSV or a text field
+ * should keep using `formatINR`.
+ */
+export function moneyHtml(amount, sign = "") {
+  const str = formatINR(amount);
+  const i = str.indexOf("₹");
+  const signHtml = sign ? `<span class="money-sign">${sign}</span>` : "";
+  if (i === -1) return signHtml + escapeHtml(str);
+  return `${signHtml}<span class="money-sym">₹</span>${escapeHtml(str.slice(i + 1))}`;
+}
+
 export function toJsDate(ts) {
   if (!ts) return null;
   if (ts instanceof Date) return ts;

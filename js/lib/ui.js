@@ -19,7 +19,7 @@ export function toast(kind, message) {
   const el = document.createElement("div");
   el.className = `toast toast-${kind}`;
   el.setAttribute("role", "status");
-  el.innerHTML = `${iconHtml(toastIcon[kind] || "alert")}<span>${escapeHtml(message)}</span>`;
+  el.innerHTML = `<span>${escapeHtml(message)}</span>${iconHtml(toastIcon[kind] || "alert")}`;
   root.appendChild(el);
   setTimeout(() => el.remove(), 4000);
 }
@@ -32,6 +32,7 @@ export function openDialog({ title, size = "md", bodyHtml, onMount, onClose }) {
   overlay.className = "dialog-overlay";
   overlay.innerHTML = `
     <div class="dialog ${size === "sm" ? "sm" : size === "lg" ? "lg" : ""}" role="dialog" aria-modal="true">
+      <div class="dialog-grabber" aria-hidden="true"></div>
       <div class="dialog-head">
         <h2 class="dialog-title">${escapeHtml(title)}</h2>
         <button type="button" class="btn-icon" data-dialog-close aria-label="Close dialog">${iconHtml("x")}</button>
@@ -70,10 +71,9 @@ export function openDialog({ title, size = "md", bodyHtml, onMount, onClose }) {
 export function emptyState(title, body = "", actionHtml = "") {
   return `
     <div class="empty-state" role="status">
-      <svg class="blueprint-mark" width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-        <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1"/>
-        <path d="M20 4v32M4 20h32" stroke="currentColor" stroke-width="1"/>
-        <circle cx="20" cy="20" r="4" stroke="currentColor" stroke-width="1.5"/>
+      <svg class="blueprint-mark" width="34" height="34" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <circle cx="20" cy="20" r="17" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M20 3v8M20 29v8M3 20h8M29 20h8" stroke="currentColor" stroke-width="1.2"/>
       </svg>
       <h3 class="empty-title">${escapeHtml(title)}</h3>
       ${body ? `<p class="empty-body">${escapeHtml(body)}</p>` : ""}
@@ -82,16 +82,17 @@ export function emptyState(title, body = "", actionHtml = "") {
 }
 
 export function skeletonList(rows = 5) {
+  const widths = [60, 48, 55, 42, 52];
   let html = '<div aria-busy="true" aria-label="Loading">';
   for (let i = 0; i < rows; i++) {
     html += `
-      <div class="flex items-center gap-3" style="padding:10px 0;">
-        <div class="skeleton" style="width:36px;height:36px;border-radius:999px;"></div>
+      <div class="flex items-center gap-3" style="padding:8px 0;">
+        <div class="skeleton" style="width:36px;height:36px;"></div>
         <div class="flex-col gap-2" style="flex:1;">
-          <div class="skeleton" style="height:12px;width:60%;"></div>
-          <div class="skeleton" style="height:10px;width:30%;"></div>
+          <div class="skeleton" style="height:10px;width:${widths[i % widths.length]}%;"></div>
+          <div class="skeleton skeleton-soft" style="height:8px;width:${widths[i % widths.length] - 18}%;"></div>
         </div>
-        <div class="skeleton" style="height:14px;width:56px;"></div>
+        <div class="skeleton" style="height:12px;width:70px;"></div>
       </div>`;
   }
   html += "</div>";
@@ -106,15 +107,41 @@ export function iconCircle(iconName, tone = "blueprint") {
   return `<span class="icon-circle tone-${tone}">${iconHtml(iconName)}</span>`;
 }
 
-export function statCard(label, value, iconName, tone = "ink", sub = "") {
+/** Maps a tone name to the dot colour used in the stat-card head. */
+const toneVar = {
+  green: "var(--green)", rust: "var(--rust)", amber: "var(--amber)",
+  brass: "var(--brass)", blueprint: "var(--blueprint)", ink: "var(--blueprint)",
+};
+
+/**
+ * A headline figure: a small coloured dot + mono label above a large tabular
+ * amount. `value` is trusted HTML (pass `moneyHtml(...)`), everything else is
+ * escaped. `tone` colours both the dot and the figure.
+ */
+export function statCard(label, value, tone = "ink", sub = "") {
+  const toneClass = ["green", "rust", "brass", "amber"].includes(tone) ? ` stat-${tone}` : "";
   return `
-    <div class="stat-card">
-      <div class="flex items-center justify-between">
-        <p class="stat-label">${escapeHtml(label)}</p>
-        ${iconName ? `<span class="stat-icon tone-${tone}">${iconHtml(iconName)}</span>` : ""}
+    <div class="stat-card${toneClass}">
+      <div class="stat-head">
+        <span class="stat-dot" style="background:${toneVar[tone] || toneVar.ink};"></span>
+        <span class="stat-label">${escapeHtml(label)}</span>
       </div>
-      <p class="stat-value font-ledger">${value}</p>
+      <p class="stat-value">${value}</p>
       ${sub ? `<p class="stat-sub">${escapeHtml(sub)}</p>` : ""}
+    </div>`;
+}
+
+/**
+ * The single saturated field on a screen — a navy slab carrying the one number
+ * the page is really about. `value` is trusted HTML; `chip` is the small
+ * translucent caption underneath.
+ */
+export function heroCard(label, value, chip = "") {
+  return `
+    <div class="hero-card">
+      <div class="hero-label">${escapeHtml(label)}</div>
+      <div class="hero-value">${value}</div>
+      ${chip ? `<div class="hero-chip">${escapeHtml(chip)}</div>` : ""}
     </div>`;
 }
 

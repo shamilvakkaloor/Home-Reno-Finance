@@ -1,13 +1,14 @@
 import { onSnapshot, orderBy, query } from "../lib/fs.js";
 import { accountsCol, transactionsCol, categoriesCol, loansCol, billsCol, settingsDoc } from "../lib/collections.js";
 import { computeAccountBalances, totalHeld, totalReceived, totalExpenses } from "../lib/ledger.js";
-import { formatINR } from "../lib/format.js";
+import { formatINR, moneyHtml, escapeHtml } from "../lib/format.js";
 import { t, getLocale } from "../lib/i18n.js";
-import { statCard } from "../lib/ui.js";
+import { statCard, heroCard } from "../lib/ui.js";
 import { iconHtml } from "../lib/icons.js";
 import { addCleanup } from "../lib/router.js";
 import { openTransactionForm } from "../components/transactionForm.js";
 import { periodFilterHtml, wirePeriodFilter, periodRange } from "../components/periodFilter.js";
+import { doughnutChart, barChart, lineChart, TONE } from "../lib/charts.js";
 
 const DEFAULT_SETTINGS = { totalBudget: 0, budgetThresholds: { warning: 70, critical: 90 } };
 
@@ -25,10 +26,10 @@ let charts = [];
 let currentContainer = null;
 
 const QUICK_ACTIONS = [
-  { key: "expense", labelKey: "action_add_expense", icon: "plus" },
-  { key: "money_received", labelKey: "action_money_received", icon: "wallet" },
-  { key: "transfer", labelKey: "action_transfer_money", icon: "arrows" },
-  { key: "money_returned", labelKey: "action_return_money", icon: "undo" },
+  { key: "expense", labelKey: "action_add_expense", icon: "plus", tone: "rust" },
+  { key: "money_received", labelKey: "action_money_received", icon: "down", tone: "green" },
+  { key: "transfer", labelKey: "action_transfer_money", icon: "arrows", tone: "blueprint" },
+  { key: "money_returned", labelKey: "action_return_money", icon: "undo", tone: "brass" },
 ];
 
 export async function render(container) {
@@ -98,6 +99,7 @@ function paint(container) {
     if (!tx.categoryId) continue;
     byCategory[tx.categoryId] = (byCategory[tx.categoryId] || 0) + tx.amount;
   }
+  const laborTotal = byCategory.labor || 0;
   const catEntries = Object.entries(byCategory)
     .map(([id, value]) => {
       if (id === "labor") return { name: "Labor", value };
@@ -129,46 +131,95 @@ function paint(container) {
   const remaining = state.settings.totalBudget - totalSpentAll;
   const barColor = budgetPct > state.settings.budgetThresholds.critical ? "var(--rust)" : budgetPct > state.settings.budgetThresholds.warning ? "var(--amber)" : "var(--green)";
 
+  const periodLabel = t("filter_" + (state.period.period || "all_time")) || t("filter_all_time");
+  const budgetTone = budgetPct > state.settings.budgetThresholds.critical ? "rust" : budgetPct > state.settings.budgetThresholds.warning ? "amber" : "green";
+
   container.innerHTML = `
     ${periodFilterHtml(state.period, "dash-pf")}
 
+    <div class="mt-3">
+      ${heroCard(
+        t("card_available"),
+        moneyHtml(available),
+        `${balances.length} account${balances.length === 1 ? "" : "s"}`
+      )}
+    </div>
+
     <div class="quick-actions mt-3">
-      ${QUICK_ACTIONS.map((a) => `<button type="button" class="quick-action" data-qa="${a.key}">${iconHtml(a.icon)}<span>${t(a.labelKey)}</span></button>`).join("")}
+      ${QUICK_ACTIONS.map((a) => `
+        <button type="button" class="quick-action" data-qa="${a.key}">
+          <span class="quick-action-icon tone-${a.tone}">${iconHtml(a.icon)}</span>
+          <span>${t(a.labelKey)}</span>
+        </button>`).join("")}
     </div>
 
-    <div class="grid-4 mt-4">
-      ${statCard(t("card_total_budget"), formatINR(state.settings.totalBudget), "piggy", "blueprint")}
-      ${statCard(t("card_total_received"), formatINR(received), "trendUp", "green")}
-      ${statCard(t("card_total_expenses"), formatINR(expenses), "trendDown", "rust")}
-      ${statCard(t("card_available"), formatINR(available), "wallet", "ink")}
+    <div class="mt-4">
+      <div class="section-head">
+        <span class="eyebrow">Headline</span>
+        <span class="eyebrow-meta">${periodLabel}</span>
+      </div>
+      <div class="grid-4">
+        ${statCard(t("card_total_budget"), moneyHtml(state.settings.totalBudget), "blueprint")}
+        ${statCard(t("card_total_received"), moneyHtml(received), "green")}
+        ${statCard(t("card_total_expenses"), moneyHtml(expenses), "rust")}
+        ${statCard("Labour", moneyHtml(laborTotal), "brass")}
+      </div>
     </div>
 
-    <div class="grid-4 mt-3">
-      ${balances.map((b) => statCard(b.accountName, formatINR(b.currentBalance), "wallet", "blueprint")).join("")}
-      ${statCard(t("card_outstanding_loans"), formatINR(outstandingLoans), "handCoins", "amber")}
-      ${statCard(t("card_pending_bills"), formatINR(pendingBills), "receipt", "amber")}
+    <div class="ledger-sheet mt-4">
+      ${balances.map((b) => `
+        <div class="summary-row">
+          <div><div class="summary-name">${escapeHtml(b.accountName)}</div></div>
+          <div class="summary-amount">${moneyHtml(b.currentBalance)}</div>
+        </div>`).join("")}
+      <div class="summary-row accent">
+        <div class="flex items-center gap-2">
+          <span class="icon-circle icon-circle-sm tone-amber">${iconHtml("handCoins")}</span>
+          <div class="summary-name">${t("card_outstanding_loans")}</div>
+        </div>
+        <div class="summary-amount" style="color:var(--amber);">${moneyHtml(outstandingLoans)}</div>
+      </div>
+      <div class="summary-row accent">
+        <div class="flex items-center gap-2">
+          <span class="icon-circle icon-circle-sm tone-rust">${iconHtml("receipt")}</span>
+          <div class="summary-name">${t("card_pending_bills")}</div>
+        </div>
+        <div class="summary-amount" style="color:var(--rust);">${moneyHtml(pendingBills)}</div>
+      </div>
     </div>
 
     ${state.settings.totalBudget > 0 ? `
       <div class="card mt-4"><div class="card-body">
-        <div class="flex items-center justify-between text-sm">
-          <span class="font-medium">${t("nav_budget")}</span>
-          <span class="font-ledger text-concrete">${formatINR(totalSpentAll)} / ${formatINR(state.settings.totalBudget)}</span>
+        <div class="flex items-baseline justify-between">
+          <span class="card-title">Budget used</span>
+          <span class="badge badge-${budgetTone} font-ledger">${budgetPct.toFixed(1)}%</span>
         </div>
-        <div class="progress mt-2"><div class="progress-bar" style="width:${Math.min(budgetPct, 100)}%;background:${barColor};"></div></div>
-        <p class="text-xs text-concrete mt-2">${remaining >= 0 ? formatINR(remaining) + " remaining" : formatINR(Math.abs(remaining)) + " over budget"}</p>
+        <div class="mt-3 font-ledger text-sm" style="color:var(--ink-soft);">
+          ${formatINR(totalSpentAll)} <span style="color:var(--concrete-light);">/ ${formatINR(state.settings.totalBudget)}</span>
+        </div>
+        <div class="progress mt-3"><div class="progress-bar${budgetPct > 100 ? " over" : ""}" style="width:${Math.min(budgetPct, 100)}%;background:${budgetPct > 100 ? "" : barColor};"></div></div>
+        <div class="mt-2 flex justify-between font-ledger text-xs text-concrete">
+          <span>${remaining >= 0 ? formatINR(remaining) + " remaining" : formatINR(Math.abs(remaining)) + " over budget"}</span>
+          <span>${state.settings.budgetThresholds.warning}% → ${state.settings.budgetThresholds.critical}% thresholds</span>
+        </div>
       </div></div>
     ` : ""}
 
-    <div class="grid-2 mt-4">
-      <div class="card"><div class="card-header"><span class="card-title">Expenses by category</span></div>
-        <div class="card-body">${catEntries.length ? '<div class="chart-box"><canvas id="chart-cat"></canvas></div>' : emptyChart()}</div></div>
-      <div class="card"><div class="card-header"><span class="card-title">Money by account</span></div>
-        <div class="card-body">${balances.length ? '<div class="chart-box"><canvas id="chart-acc"></canvas></div>' : emptyChart()}</div></div>
-      <div class="card"><div class="card-header"><span class="card-title">Spending over time</span></div>
-        <div class="card-body">${Object.keys(overTime).length ? '<div class="chart-box"><canvas id="chart-time"></canvas></div>' : emptyChart()}</div></div>
-      <div class="card"><div class="card-header"><span class="card-title">Money received vs expenses</span></div>
-        <div class="card-body">${Object.keys(recVsExp).length ? '<div class="chart-box"><canvas id="chart-rve"></canvas></div>' : emptyChart()}</div></div>
+    <div class="mt-5">
+      <div class="section-head"><span class="eyebrow">Charts</span></div>
+      <div class="grid-2">
+        <div class="card"><div class="card-header">
+            <span class="card-title">Expenses by category</span>
+            <span class="card-sub">${catEntries.length} categories</span>
+          </div>
+          <div class="card-body">${catEntries.length ? '<div class="chart-box"><canvas id="chart-cat"></canvas></div>' : emptyChart()}</div></div>
+        <div class="card"><div class="card-header"><span class="card-title">Money by account</span></div>
+          <div class="card-body">${balances.length ? '<div class="chart-box"><canvas id="chart-acc"></canvas></div>' : emptyChart()}</div></div>
+        <div class="card"><div class="card-header"><span class="card-title">Spending over time</span></div>
+          <div class="card-body">${Object.keys(overTime).length ? '<div class="chart-box"><canvas id="chart-time"></canvas></div>' : emptyChart()}</div></div>
+        <div class="card"><div class="card-header"><span class="card-title">Money received vs expenses</span></div>
+          <div class="card-body">${Object.keys(recVsExp).length ? '<div class="chart-box"><canvas id="chart-rve"></canvas></div>' : emptyChart()}</div></div>
+      </div>
     </div>
   `;
 
@@ -182,14 +233,18 @@ function paint(container) {
   );
 
   destroyCharts();
-  if (catEntries.length) charts.push(pieChart("chart-cat", catEntries));
-  if (balances.length) charts.push(barChart("chart-acc", balances.map((b) => b.accountName), [{ label: "Balance", data: balances.map((b) => Math.max(b.currentBalance, 0)), color: "#2b5f8c" }]));
+  if (catEntries.length) charts.push(doughnutChart("chart-cat", catEntries));
+  if (balances.length) {
+    charts.push(barChart("chart-acc", balances.map((b) => b.accountName), [
+      { label: "Balance", data: balances.map((b) => Math.max(b.currentBalance, 0)), color: TONE.blueprint },
+    ]));
+  }
   if (Object.keys(overTime).length) charts.push(lineChart("chart-time", Object.keys(overTime), Object.values(overTime)));
   if (Object.keys(recVsExp).length) {
     const labels = Object.keys(recVsExp);
     charts.push(barChart("chart-rve", labels, [
-      { label: "Received", data: labels.map((k) => recVsExp[k].received), color: "#2f6b4f" },
-      { label: "Spent", data: labels.map((k) => recVsExp[k].spent), color: "#a6432e" },
+      { label: "Received", data: labels.map((k) => recVsExp[k].received), color: TONE.green },
+      { label: "Spent", data: labels.map((k) => recVsExp[k].spent), color: TONE.rust },
     ]));
   }
 }
@@ -201,49 +256,4 @@ function emptyChart() {
 function destroyCharts() {
   charts.forEach((c) => c && c.destroy());
   charts = [];
-}
-
-function baseOptions() {
-  return {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false, labels: { font: { size: 11 } } } },
-    scales: {
-      x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-      y: { ticks: { font: { size: 11 }, callback: (v) => "₹" + v.toLocaleString("en-IN") } },
-    },
-  };
-}
-
-function pieChart(canvasId, entries) {
-  const el = document.getElementById(canvasId);
-  if (!el) return null;
-  const palette = ["#2B5F8C", "#A87B3F", "#2F6B4F", "#A6432E", "#B8801F", "#1F4666", "#6B6F76", "#5C8AAE"];
-  return new Chart(el, {
-    type: "doughnut",
-    data: { labels: entries.map((e) => e.name), datasets: [{ data: entries.map((e) => e.value), backgroundColor: palette }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom", labels: { font: { size: 11 }, boxWidth: 10 } } } },
-  });
-}
-
-function barChart(canvasId, labels, series) {
-  const el = document.getElementById(canvasId);
-  if (!el) return null;
-  const opts = baseOptions();
-  if (series.length > 1) opts.plugins.legend.display = true;
-  return new Chart(el, {
-    type: "bar",
-    data: { labels, datasets: series.map((s) => ({ label: s.label, data: s.data, backgroundColor: s.color, borderRadius: 4 })) },
-    options: opts,
-  });
-}
-
-function lineChart(canvasId, labels, data) {
-  const el = document.getElementById(canvasId);
-  if (!el) return null;
-  return new Chart(el, {
-    type: "line",
-    data: { labels, datasets: [{ label: "Spending", data, borderColor: "#a87b3f", backgroundColor: "#a87b3f", tension: 0.3, pointRadius: 3 }] },
-    options: baseOptions(),
-  });
 }

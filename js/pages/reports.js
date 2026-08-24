@@ -9,6 +9,7 @@ import { t, getLocale } from "../lib/i18n.js";
 import { addCleanup } from "../lib/router.js";
 import { periodFilterHtml, wirePeriodFilter, periodRange } from "../components/periodFilter.js";
 import { iconHtml } from "../lib/icons.js";
+import { doughnutChart, barChart, stackedBarChart, TONE } from "../lib/charts.js";
 
 const DEFAULT_SETTINGS = { totalBudget: 0, budgetThresholds: { warning: 70, critical: 90 } };
 let state = { accounts: [], transactions: [], categories: [], vendors: [], phases: [], settings: DEFAULT_SETTINGS, period: { period: "this_month" } };
@@ -176,40 +177,16 @@ function paint(container) {
   container.querySelector("#rep-json").addEventListener("click", downloadJson);
 
   destroyCharts();
-  const palette = ["#2B5F8C", "#A87B3F", "#2F6B4F", "#A6432E", "#B8801F", "#1F4666", "#6B6F76", "#5C8AAE"];
-  const catEl = document.getElementById("rep-chart-cat");
-  if (catEl && catEntries.length) {
-    charts.push(new Chart(catEl, { type: "doughnut", data: { labels: catEntries.map((e) => e.name), datasets: [{ data: catEntries.map((e) => e.value), backgroundColor: palette }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom", labels: { font: { size: 11 }, boxWidth: 10 } } } } }));
+  if (catEntries.length) charts.push(doughnutChart("rep-chart-cat", catEntries));
+  if (venEntries.length) {
+    charts.push(barChart("rep-chart-ven", venEntries.map((e) => e.name), [
+      { label: "Spend", data: venEntries.map((e) => e.value), color: TONE.blueprint },
+    ]));
   }
-  const venEl = document.getElementById("rep-chart-ven");
-  if (venEl && venEntries.length) {
-    charts.push(new Chart(venEl, {
-      type: "bar",
-      data: { labels: venEntries.map((e) => e.name), datasets: [{ data: venEntries.map((e) => e.value), backgroundColor: "#2b5f8c", borderRadius: 4 }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { font: { size: 10 } } }, y: { ticks: { callback: (v) => "₹" + v.toLocaleString("en-IN"), font: { size: 11 } } } } },
-    }));
-  }
-  const phaseEl = document.getElementById("rep-chart-phase");
-  if (phaseEl && phaseEntries.length) {
-    charts.push(new Chart(phaseEl, {
-      type: "bar",
-      data: {
-        labels: phaseEntries.map((p) => p.name),
-        datasets: [
-          { label: "Labor", data: phaseEntries.map((p) => p.labor), backgroundColor: "#a87b3f", borderRadius: 4 },
-          { label: "Materials", data: phaseEntries.map((p) => p.materials), backgroundColor: "#2b5f8c", borderRadius: 4 },
-        ],
-      },
-      options: {
-        indexAxis: "y",
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: true, position: "bottom", labels: { font: { size: 11 }, boxWidth: 10 } } },
-        scales: {
-          x: { stacked: true, ticks: { callback: (v) => "₹" + v.toLocaleString("en-IN"), font: { size: 11 } } },
-          y: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
-        },
-      },
-    }));
+  if (phaseEntries.length) {
+    charts.push(stackedBarChart("rep-chart-phase", phaseEntries.map((p) => p.name), [
+      { label: "Labor", data: phaseEntries.map((p) => p.labor), color: TONE.brass },
+      { label: "Materials", data: phaseEntries.map((p) => p.materials), color: TONE.blueprint },
+    ]));
   }
 }

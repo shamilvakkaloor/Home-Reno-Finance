@@ -98,7 +98,7 @@ function renderAccessDenied() {
 }
 
 function navLinkHtml(item, active) {
-  return `<a href="#/${item.path}" class="nav-link ${active ? "active" : ""}" data-nav="${item.path}">${iconHtml(item.icon)}<span>${t(item.labelKey)}</span></a>`;
+  return `<a href="#/${item.path}" class="nav-link ${active ? "active" : ""}" data-nav="${item.path}">${iconHtml(item.icon)}<span>${t(item.labelKey)}</span>${item.adminOnly ? '<span class="nav-tag">ADMIN</span>' : ""}</a>`;
 }
 
 function buildShell() {
@@ -113,25 +113,36 @@ function buildShell() {
       <aside class="sidebar">
         <div class="sidebar-brand">
           <span class="sidebar-logo">H</span>
-          <span class="font-display" style="font-size:16px;font-weight:600;">${t("appName")}</span>
+          <span style="min-width:0;">
+            <span class="sidebar-wordmark" style="display:block;">${t("appName")}</span>
+            <span class="sidebar-sub" style="display:block;">SITE LEDGER</span>
+          </span>
         </div>
         <nav aria-label="Primary">${sidebarLinks}</nav>
+        <div class="sidebar-foot">
+          <div class="sidebar-foot-card" id="sidebar-status"></div>
+        </div>
       </aside>
       <div class="main">
         <header class="topbar">
-          <div class="topbar-offline hidden" id="offline-banner">${t("offline_banner")}</div>
+          <div class="topbar-offline hidden" id="offline-banner">${iconHtml("wifiOff")}<span>${t("offline_banner")}</span></div>
           <div class="topbar-row">
-            <h1 class="font-display" id="page-title" style="font-size:18px;font-weight:600;"></h1>
+            <div class="topbar-title">
+              <h1 class="font-display" id="page-title" style="font-size:18px;font-weight:600;letter-spacing:-.015em;"></h1>
+              <span class="topbar-meta" id="page-meta"></span>
+            </div>
             <div class="flex items-center gap-2">
-              <span id="wifi-off-icon" class="hidden" style="color:var(--amber);display:flex;">${iconHtml("wifiOff")}</span>
-              <button id="lang-toggle" class="btn btn-outline btn-sm">${iconHtml("languages")}${getLocale() === "en" ? "മലയാളം" : "English"}</button>
+              <div class="seg" role="group" aria-label="Language">
+                <button type="button" class="seg-item ${getLocale() === "en" ? "active" : ""}" data-lang="en">EN</button>
+                <button type="button" class="seg-item ${getLocale() === "ml" ? "active" : ""}" data-lang="ml">ML</button>
+              </div>
               <div style="position:relative;">
-                <button id="user-menu-btn" class="btn-icon" style="background:var(--blueprint-light);color:var(--blueprint-dark);font-family:var(--font-display);font-weight:600;" aria-haspopup="true">
+                <button id="user-menu-btn" class="avatar-btn" aria-haspopup="true">
                   ${(authStore.get().appUser?.displayName || "?")[0]?.toUpperCase() || "?"}
                 </button>
-                <div id="user-menu" class="hidden card" style="position:absolute;right:0;top:44px;width:200px;padding:6px;z-index:20;">
-                  <div class="text-xs text-concrete" style="padding:6px 10px;">${escapeHtml(authStore.get().appUser?.email || "")}</div>
-                  <button id="signout-menu-btn" class="btn btn-ghost w-full" style="justify-content:flex-start;color:var(--rust);">${iconHtml("logout")}${t("action_sign_out")}</button>
+                <div id="user-menu" class="hidden menu" style="position:absolute;right:0;top:40px;width:210px;z-index:20;">
+                  <div class="text-xs text-concrete" style="padding:10px 13px;border-bottom:1px solid var(--hairline-soft);">${escapeHtml(authStore.get().appUser?.email || "")}</div>
+                  <button id="signout-menu-btn" class="menu-item" style="color:var(--rust);">${t("action_sign_out")}</button>
                 </div>
               </div>
             </div>
@@ -146,7 +157,13 @@ function buildShell() {
     </div>
   `;
 
-  document.getElementById("lang-toggle").addEventListener("click", () => setLocale(getLocale() === "en" ? "ml" : "en"));
+  app.querySelectorAll("[data-lang]").forEach((btn) =>
+    btn.addEventListener("click", () => setLocale(btn.getAttribute("data-lang")))
+  );
+
+  const role = authStore.get().appUser?.role === "admin" ? "ADMIN" : "VIEWER";
+  const sync = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false });
+  document.getElementById("sidebar-status").innerHTML = `${role}<br>LAST SYNC ${escapeHtml(sync)}`;
   const userMenuBtn = document.getElementById("user-menu-btn");
   const userMenu = document.getElementById("user-menu");
   userMenuBtn.addEventListener("click", () => userMenu.classList.toggle("hidden"));
@@ -188,6 +205,8 @@ async function renderPage() {
   const item = allNav.find((i) => i.path === path);
   const titleEl = document.getElementById("page-title");
   if (titleEl) titleEl.textContent = item ? t(item.labelKey) : t("appName");
+  const metaEl = document.getElementById("page-meta");
+  if (metaEl) metaEl.textContent = "₹ INR";
 
   document.querySelectorAll("[data-nav]").forEach((el) => {
     el.classList.toggle("active", el.getAttribute("data-nav") === path);

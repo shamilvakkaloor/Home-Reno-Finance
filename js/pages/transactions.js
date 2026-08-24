@@ -1,6 +1,6 @@
 import { onSnapshot, orderBy, query } from "../lib/fs.js";
 import { accountsCol, transactionsCol, categoriesCol, vendorsCol, transactionDoc } from "../lib/collections.js";
-import { formatDate, formatINR, escapeHtml } from "../lib/format.js";
+import { formatDate, formatINR, moneyHtml, escapeHtml } from "../lib/format.js";
 import { t, getLocale } from "../lib/i18n.js";
 import { emptyState, skeletonList, badge, toast, bindSingleton } from "../lib/ui.js";
 import { iconHtml } from "../lib/icons.js";
@@ -97,21 +97,22 @@ function rowHtml(tx) {
   if (vendor) bits.push(vendor.name);
 
   const admin = isAdmin();
+  const deleted = tx.status === "deleted";
   return `
-    <div class="list-row ${tx.status === "deleted" ? "deleted" : ""}" data-tx-id="${tx.id}">
-      <span class="icon-circle tone-${tone}">${iconHtml(typeIcon[tx.type] || "transactions")}</span>
-      <div style="min-width:0;flex:1;">
-        <div class="flex items-center gap-2">
-          <p class="truncate font-medium text-sm">${escapeHtml(tx.description || t("type_" + tx.type))}</p>
-          ${tx.status === "deleted" ? badge(t("status_deleted"), "rust") : ""}
+    <div class="list-row ${deleted ? "deleted" : ""}" data-tx-id="${tx.id}">
+      <span class="icon-circle tone-${deleted ? "neutral" : tone}">${iconHtml(typeIcon[tx.type] || "transactions")}</span>
+      <div class="list-row-main">
+        <div class="list-row-title truncate">
+          ${escapeHtml(tx.description || t("type_" + tx.type))}
+          ${deleted ? badge(t("status_deleted"), "rust") : ""}
         </div>
-        <p class="truncate text-xs text-concrete">${formatDate(tx.date, locale)}${bits.length ? " · " + escapeHtml(bits.join(" · ")) : ""}</p>
+        <div class="list-row-meta truncate">${formatDate(tx.date, locale)}${bits.length ? " · " + escapeHtml(bits.join(" · ")) : ""}</div>
       </div>
       <div class="flex items-center gap-2">
-        <span class="font-ledger text-sm font-medium" style="color:var(--${tone === "green" ? "green" : tone === "rust" ? "rust" : "blueprint-dark"});">${sign}${formatINR(tx.amount)}</span>
-        ${admin && tx.status === "active" ? `<button type="button" class="btn-icon" data-edit-tx="${tx.id}" aria-label="Edit" title="Edit">${iconHtml("pencil")}</button>` : ""}
-        ${admin && tx.status === "active" ? `<button type="button" class="btn-icon" data-delete="${tx.id}" aria-label="Delete">${iconHtml("trash")}</button>` : ""}
-        ${admin && tx.status === "deleted" ? `<button type="button" class="btn-icon" data-restore="${tx.id}" aria-label="Restore">${iconHtml("undo")}</button>` : ""}
+        <span class="list-row-amount amount-${tone}">${sign}${moneyHtml(tx.amount)}</span>
+        ${admin && !deleted ? `<button type="button" class="btn-icon" data-edit-tx="${tx.id}" aria-label="Edit" title="Edit">${iconHtml("pencil")}</button>` : ""}
+        ${admin && !deleted ? `<button type="button" class="btn-icon" data-delete="${tx.id}" aria-label="Delete">${iconHtml("trash")}</button>` : ""}
+        ${admin && deleted ? `<button type="button" class="btn btn-outline btn-sm" data-restore="${tx.id}">${t("action_restore")}</button>` : ""}
       </div>
     </div>`;
 }
@@ -122,15 +123,15 @@ function paint(container) {
 
   container.innerHTML = `
     <div class="flex items-center gap-2" style="flex-wrap:wrap;">
-      <div style="position:relative;flex:1;min-width:200px;">
-        <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--concrete-light);display:flex;">${iconHtml("search")}</span>
-        <input class="input" id="tx-search" style="padding-left:34px;" placeholder="Search description, vendor, category…" value="${escapeHtml(state.search)}" />
+      <div class="search-wrap">
+        ${iconHtml("search")}
+        <input class="input" id="tx-search" placeholder="Search description, vendor, category…" value="${escapeHtml(state.search)}" />
       </div>
       <button type="button" class="btn btn-outline" id="tx-export">${iconHtml("download")}${t("action_export_csv")}</button>
       <div style="position:relative;">
         <button type="button" class="btn btn-primary" id="tx-new-btn">${iconHtml("plus")}${t("action_new_transaction")}</button>
-        <div id="tx-new-menu" class="hidden card" style="position:absolute;right:0;top:44px;width:210px;padding:6px;z-index:20;">
-          ${NEW_TX_TYPES.map((o) => `<button type="button" class="btn btn-ghost w-full" style="justify-content:flex-start;" data-new-type="${o.type}">${o.labelKey ? t(o.labelKey) : escapeHtml(o.label)}</button>`).join("")}
+        <div id="tx-new-menu" class="hidden menu" style="position:absolute;right:0;top:46px;width:210px;z-index:20;">
+          ${NEW_TX_TYPES.map((o) => `<button type="button" class="menu-item" data-new-type="${o.type}">${o.labelKey ? t(o.labelKey) : escapeHtml(o.label)}</button>`).join("")}
         </div>
       </div>
     </div>
@@ -155,13 +156,13 @@ function paint(container) {
       </select>
     </div>
 
-    <div class="flex items-center justify-between text-xs text-concrete mt-3">
-      <span>${list.length} transactions</span>
-      <span class="font-ledger">${formatINR(total)}</span>
+    <div class="section-head mt-4">
+      <span class="eyebrow">${list.length} transactions</span>
+      <span class="font-ledger text-sm font-medium" style="color:var(--concrete);">${formatINR(total)}</span>
     </div>
 
-    <div class="ledger-rules card mt-2" style="padding:0 12px;">
-      ${!state.loaded ? `<div style="padding:16px 0;">${skeletonList()}</div>` : list.length === 0 ? `<div style="padding:24px 0;">${emptyState(t("empty_transactions_title"), t("empty_transactions_body"))}</div>` : list.map(rowHtml).join("")}
+    <div class="ledger-sheet">
+      ${!state.loaded ? `<div style="padding:12px 14px;">${skeletonList()}</div>` : list.length === 0 ? `<div style="padding:16px;">${emptyState(t("empty_transactions_title"), t("empty_transactions_body"))}</div>` : list.map(rowHtml).join("")}
     </div>
   `;
 
