@@ -55,10 +55,11 @@ export function totalHeld(balances) {
   return balances.reduce((sum, b) => sum + b.currentBalance, 0);
 }
 
-export function totalReceived(transactions) {
+export function totalReceived(transactions, accounts = []) {
+  const initialFund = accounts.reduce((sum, account) => sum + (account.openingBalance ?? 0), 0);
   return transactions
     .filter((t) => t.status === "active" && (t.type === "money_received" || t.type === "loan_received"))
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + t.amount, initialFund);
 }
 
 export function totalExpenses(transactions) {

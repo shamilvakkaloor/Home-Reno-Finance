@@ -84,7 +84,8 @@ function paint(container) {
 
   const balances = computeAccountBalances(state.accounts, active);
   const available = totalHeld(balances);
-  const received = totalReceived(filtered);
+  // Opening balances are undated initial funds, included only in an unbounded total.
+  const received = totalReceived(filtered, !from && !to ? state.accounts : []);
   const expenses = totalExpenses(filtered);
   const outstandingLoans = state.loans.filter((l) => l.status === "active").reduce((s, l) => s + l.outstandingAmount, 0);
   const pendingBills = state.bills.filter((b) => b.status === "unpaid" || b.status === "partial").reduce((s, b) => s + b.remainingAmount, 0);
