@@ -41,10 +41,7 @@ function centerScreen(bodyHtml) {
 
 function renderLoading() {
   centerScreen(`
-    <svg width="48" height="48" viewBox="0 0 40 40" fill="none" class="blueprint-mark" style="margin:0 auto 12px;">
-      <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1"/>
-      <path d="M20 4v32M4 20h32" stroke="currentColor" stroke-width="1"/>
-    </svg>
+    <img class="auth-logo" src="logo.svg" alt="Home Reno Finance" width="72" height="72" />
     <p class="text-sm text-concrete">${t("loading")}</p>
   `);
 }
@@ -52,11 +49,7 @@ function renderLoading() {
 function renderLogin() {
   const configured = isFirebaseConfigured();
   centerScreen(`
-    <svg width="64" height="64" viewBox="0 0 40 40" fill="none" class="blueprint-mark" style="margin:0 auto 20px;">
-      <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1"/>
-      <path d="M20 4v32M4 20h32" stroke="currentColor" stroke-width="1"/>
-      <circle cx="20" cy="20" r="4" stroke="currentColor" stroke-width="1.5"/>
-    </svg>
+    <img class="auth-logo" src="logo.svg" alt="Home Reno Finance" width="72" height="72" />
     <h1 class="font-display" style="font-size:22px;font-weight:600;">${t("login_title")}</h1>
     <p class="text-sm text-concrete mt-2">${t("login_subtitle")}</p>
     ${!configured ? `<div class="mt-3" style="border:1px solid rgba(184,128,31,.3);background:var(--amber-light);color:var(--amber);border-radius:10px;padding:10px;font-size:12px;text-align:left;">Firebase isn't configured yet. Add your project credentials to <code>config.js</code> (see SETUP.md).</div>` : ""}
@@ -85,10 +78,7 @@ function renderLogin() {
 function renderAccessDenied() {
   const email = authStore.get().firebaseUser?.email || "";
   centerScreen(`
-    <svg width="64" height="64" viewBox="0 0 40 40" fill="none" class="blueprint-mark" style="margin:0 auto 20px;">
-      <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1"/>
-      <path d="M20 4v32M4 20h32" stroke="currentColor" stroke-width="1"/>
-    </svg>
+    <img class="auth-logo" src="logo.svg" alt="Home Reno Finance" width="72" height="72" />
     <h1 class="font-display" style="font-size:19px;font-weight:600;">${t("access_denied_title")}</h1>
     <p class="text-sm text-concrete mt-2">${t("access_denied_body")}</p>
     ${email ? `<p class="font-ledger text-xs text-concrete mt-3">${escapeHtml(email)}</p>` : ""}
@@ -112,10 +102,10 @@ function buildShell() {
     <div class="shell">
       <aside class="sidebar">
         <div class="sidebar-brand">
-          <span class="sidebar-logo">H</span>
+          <span class="sidebar-logo"><img src="logo.svg" alt="" width="44" height="44" /></span>
           <span style="min-width:0;">
             <span class="sidebar-wordmark" style="display:block;">${t("appName")}</span>
-            <span class="sidebar-sub" style="display:block;">SITE LEDGER</span>
+            <span class="sidebar-sub" style="display:block;">HOME · PLAN · BUILD</span>
           </span>
         </div>
         <nav aria-label="Primary">${sidebarLinks}</nav>
@@ -128,6 +118,7 @@ function buildShell() {
           <div class="topbar-offline hidden" id="offline-banner">${iconHtml("wifiOff")}<span>${t("offline_banner")}</span></div>
           <div class="topbar-row">
             <div class="topbar-title">
+              <img class="mobile-logo" src="logo.svg" alt="Home Reno Finance" width="30" height="30" />
               <h1 class="font-display" id="page-title" style="font-size:18px;font-weight:600;letter-spacing:-.015em;"></h1>
               <span class="topbar-meta" id="page-meta"></span>
             </div>

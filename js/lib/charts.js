@@ -5,26 +5,26 @@
    passing its own colours, or that guarantee quietly breaks. */
 
 export const PALETTE = [
-  "#2B5F8C", // c1 blueprint — materials
-  "#A87B3F", // c2 brass — labor
+  "#28634E", // c1 blueprint — materials
+  "#997236", // c2 brass — labor
   "#2F6B4F", // c3 green
   "#A6432E", // c4 rust
   "#B8801F", // c5 amber
-  "#6E9BBF", // c6 blueprint light
-  "#C9A470", // c7 brass light
-  "#9A9DA3", // c8 concrete
+  "#83A38D", // c6 blueprint light
+  "#D9B877", // c7 brass light
+  "#748378", // c8 concrete
 ];
 
 export const TONE = {
-  blueprint: "#2B5F8C",
-  brass: "#A87B3F",
+  blueprint: "#28634E",
+  brass: "#997236",
   green: "#2F6B4F",
   rust: "#A6432E",
   amber: "#B8801F",
 };
 
-const GRID = "#F2F0E9";
-const TICK = "#5A5F68";
+const GRID = "#EDF0E8";
+const TICK = "#647469";
 const MONO = "'IBM Plex Mono', ui-monospace, monospace";
 
 const rupee = (v) => "₹" + Number(v).toLocaleString("en-IN");
@@ -42,14 +42,14 @@ function legend(display) {
       usePointStyle: true,
       pointStyle: "circle",
       padding: 14,
-      color: "#3A4256",
+      color: "#41554A",
     },
   };
 }
 
 function tooltip() {
   return {
-    backgroundColor: "#1C2333",
+    backgroundColor: "#173F35",
     padding: 10,
     cornerRadius: 10,
     titleFont: { size: 11, family: "Inter, system-ui, sans-serif" },

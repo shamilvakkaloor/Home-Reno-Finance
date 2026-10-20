@@ -136,9 +136,14 @@ function paint(container) {
   const budgetTone = budgetPct > state.settings.budgetThresholds.critical ? "rust" : budgetPct > state.settings.budgetThresholds.warning ? "amber" : "green";
 
   container.innerHTML = `
+    <div class="dashboard-intro">
+      <h2>${locale === "ml" ? "നമ്മുടെ വീട്, ഓരോ ചുവടിലും." : "A home in the making."}</h2>
+      <p>${locale === "ml" ? "വരവും ചെലവും ബജറ്റും ഒരിടത്ത്." : "Every contribution, every expense. Your renovation at a glance."}</p>
+    </div>
     ${periodFilterHtml(state.period, "dash-pf")}
 
-    <div class="mt-3">
+    <div class="dashboard-top">
+    <div>
       ${heroCard(
         t("card_available"),
         moneyHtml(available),
@@ -154,9 +159,11 @@ function paint(container) {
         </button>`).join("")}
     </div>
 
+    </div>
+
     <div class="mt-4">
       <div class="section-head">
-        <span class="eyebrow">Headline</span>
+        <span class="eyebrow">${locale === "ml" ? "സാമ്പത്തിക അവലോകനം" : "Financial overview"}</span>
         <span class="eyebrow-meta">${periodLabel}</span>
       </div>
       <div class="grid-4">
