@@ -1,5 +1,5 @@
 import { onSnapshot, orderBy, query } from "../lib/fs.js";
-import { accountsCol, transactionsCol, categoriesCol, loansCol, billsCol, settingsDoc } from "../lib/collections.js";
+import { accountsCol, transactionsCol, categoriesCol, settingsDoc } from "../lib/collections.js";
 import { computeAccountBalances, totalHeld, totalReceived, totalExpenses } from "../lib/ledger.js";
 import { formatINR, moneyHtml, escapeHtml } from "../lib/format.js";
 import { t, getLocale } from "../lib/i18n.js";
@@ -16,8 +16,6 @@ let state = {
   accounts: [],
   transactions: [],
   categories: [],
-  loans: [],
-  bills: [],
   settings: DEFAULT_SETTINGS,
   period: { period: "all_time" },
   loaded: { accounts: false, transactions: false },
@@ -50,19 +48,11 @@ export async function render(container) {
     state.categories = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     repaint();
   });
-  const unsubLoans = onSnapshot(loansCol(), (snap) => {
-    state.loans = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    repaint();
-  });
-  const unsubBills = onSnapshot(billsCol(), (snap) => {
-    state.bills = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    repaint();
-  });
   const unsubSettings = onSnapshot(settingsDoc(), (snap) => {
     state.settings = snap.exists() ? { ...DEFAULT_SETTINGS, ...snap.data() } : DEFAULT_SETTINGS;
     repaint();
   });
-  [unsubAcc, unsubTx, unsubCat, unsubLoans, unsubBills, unsubSettings].forEach(addCleanup);
+  [unsubAcc, unsubTx, unsubCat, unsubSettings].forEach(addCleanup);
 
   paint(container);
 }
@@ -87,8 +77,6 @@ function paint(container) {
   // Opening balances are undated initial funds, included only in an unbounded total.
   const received = totalReceived(filtered, !from && !to ? state.accounts : []);
   const expenses = totalExpenses(filtered);
-  const outstandingLoans = state.loans.filter((l) => l.status === "active").reduce((s, l) => s + l.outstandingAmount, 0);
-  const pendingBills = state.bills.filter((b) => b.status === "unpaid" || b.status === "partial").reduce((s, b) => s + b.remainingAmount, 0);
 
   const byCategory = {};
   for (const tx of filtered) {
@@ -174,26 +162,15 @@ function paint(container) {
       </div>
     </div>
 
-    <div class="ledger-sheet mt-4">
+    <div class="grid-2 account-cards mt-4">
       ${balances.map((b) => `
-        <div class="summary-row">
-          <div><div class="summary-name">${escapeHtml(b.accountName)}</div></div>
-          <div class="summary-amount">${moneyHtml(b.currentBalance)}</div>
+        <div class="card account-balance-card">
+          <div class="flex items-center gap-3">
+            <span class="icon-circle tone-blueprint">${iconHtml("wallet")}</span>
+            <h3 class="account-card-name">${escapeHtml(b.accountName)}</h3>
+          </div>
+          <div class="account-card-balance">${moneyHtml(b.currentBalance)}</div>
         </div>`).join("")}
-      <div class="summary-row accent">
-        <div class="flex items-center gap-2">
-          <span class="icon-circle icon-circle-sm tone-amber">${iconHtml("handCoins")}</span>
-          <div class="summary-name">${t("card_outstanding_loans")}</div>
-        </div>
-        <div class="summary-amount" style="color:var(--amber);">${moneyHtml(outstandingLoans)}</div>
-      </div>
-      <div class="summary-row accent">
-        <div class="flex items-center gap-2">
-          <span class="icon-circle icon-circle-sm tone-rust">${iconHtml("receipt")}</span>
-          <div class="summary-name">${t("card_pending_bills")}</div>
-        </div>
-        <div class="summary-amount" style="color:var(--rust);">${moneyHtml(pendingBills)}</div>
-      </div>
     </div>
 
     ${state.settings.totalBudget > 0 ? `
