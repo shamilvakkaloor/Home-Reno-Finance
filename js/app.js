@@ -1,3 +1,4 @@
+import { removePaidByFromTransactions } from "./lib/retiredFields.js";
 import { initAuth, authStore, signInWithGoogle, logout, isFirebaseConfigured, isAdmin } from "./lib/auth.js";
 import { t, getLocale, setLocale, onLocaleChange } from "./lib/i18n.js";
 import { iconHtml } from "./lib/icons.js";
@@ -225,6 +226,7 @@ function renderApp() {
     shellBuilt = false;
     renderAccessDenied();
   } else {
+    removePaidByFromTransactions().catch((err) => console.error("Could not remove retired Paid by data; reload to retry.", err));
     buildShell();
     shellBuilt = true;
     renderPage();

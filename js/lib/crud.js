@@ -1,4 +1,5 @@
 import { addDoc, updateDoc, deleteDoc, serverTimestamp } from "./fs.js";
+import { withoutPaidBy } from "./retiredFields.js";
 import { auditLogCol } from "./collections.js";
 
 /** Writes an audit log entry. Errors are logged, not thrown, so a failed
@@ -12,8 +13,8 @@ export async function writeAudit(entityType, entityId, action, actor, beforeData
       performedBy: actor.uid,
       performedByName: actor.displayName,
       performedAt: serverTimestamp(),
-      beforeData: beforeData ?? null,
-      afterData: afterData ?? null,
+      beforeData: withoutPaidBy(beforeData) ?? null,
+      afterData: withoutPaidBy(afterData) ?? null,
       metadata: {
         source: "web",
         device: typeof navigator !== "undefined" ? navigator.userAgent : "",

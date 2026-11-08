@@ -6,6 +6,7 @@ export {
   addDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
   setDoc,
   getDoc,
   getDocs,

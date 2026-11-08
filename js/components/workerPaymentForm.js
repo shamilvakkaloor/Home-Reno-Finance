@@ -151,7 +151,6 @@ export async function openWorkerPaymentForm(presetWorker, existingTx) {
               workerId: selectedWorker.id,
               categoryId: laborCategory?.id || null,
               phaseId,
-              paidByUserId: actor.uid,
               status: "active",
               version: 1,
               createdBy: actor.uid,

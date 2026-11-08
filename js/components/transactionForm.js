@@ -1,5 +1,5 @@
 import { getDocs, Timestamp } from "../lib/fs.js";
-import { accountsCol, categoriesCol, sourcesCol, vendorsCol, usersCol, phasesCol, transactionsCol, transactionDoc } from "../lib/collections.js";
+import { accountsCol, categoriesCol, sourcesCol, vendorsCol, phasesCol, transactionsCol, transactionDoc } from "../lib/collections.js";
 import { createWithAudit, updateWithAudit } from "../lib/crud.js";
 import { currentActor } from "../lib/auth.js";
 import { t, getLocale } from "../lib/i18n.js";
@@ -14,12 +14,11 @@ const TITLE_KEY = {
 };
 
 async function fetchOptions() {
-  const [accSnap, catSnap, srcSnap, venSnap, userSnap, phaseSnap] = await Promise.all([
+  const [accSnap, catSnap, srcSnap, venSnap, phaseSnap] = await Promise.all([
     getDocs(accountsCol()),
     getDocs(categoriesCol()),
     getDocs(sourcesCol()),
     getDocs(vendorsCol()),
-    getDocs(usersCol()),
     getDocs(phasesCol()),
   ]);
   const map = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -28,7 +27,6 @@ async function fetchOptions() {
     categories: map(catSnap).filter((c) => c.isActive),
     sources: map(srcSnap).filter((s) => s.isActive),
     vendors: map(venSnap).filter((v) => v.isActive),
-    users: map(userSnap),
     phases: map(phaseSnap).filter((p) => p.isActive),
   };
 }
@@ -107,9 +105,6 @@ export async function openTransactionForm(type, onSaved, existingTx) {
         <div class="field"><label for="tx-vendor">${t("field_vendor")}</label><select class="input" id="tx-vendor">${optionsHtml(opts.vendors, (v) => v.name, existingTx?.vendorId)}</select></div>
         <div class="field"><label for="tx-phase">Construction phase</label><select class="input" id="tx-phase">${optionsHtml(opts.phases, phaseLabel, existingTx?.phaseId)}</select></div>
       </div>
-      <div class="field"><label for="tx-paidby">${t("field_paid_by")}</label>
-        <select class="input" id="tx-paidby">${opts.users.map((u) => `<option value="${u.uid}" ${u.uid === existingTx?.paidByUserId ? "selected" : ""}>${escapeHtml(u.displayName || u.email)}</option>`).join("")}</select>
-      </div>
     `;
   }
 
@@ -160,7 +155,6 @@ export async function openTransactionForm(type, onSaved, existingTx) {
           fields.categoryId = body.querySelector("#tx-category").value || null;
           fields.vendorId = body.querySelector("#tx-vendor").value || null;
           fields.phaseId = body.querySelector("#tx-phase").value || null;
-          fields.paidByUserId = body.querySelector("#tx-paidby").value || actor.uid;
         } else {
           fields.fromAccountId = body.querySelector("#tx-from").value || null;
           fields.toAccountId = body.querySelector("#tx-to").value || null;
