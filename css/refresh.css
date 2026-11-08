@@ -81,6 +81,23 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .seg { background: #e9ede2; }
 .avatar-btn { background: #173f35; }
 .btn { min-height: 44px; }
+.btn-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
+.btn-icon svg { width: 18px; height: 18px; flex-shrink: 0; }
+.worker-group-title { min-width: 0; overflow-wrap: anywhere; }
+.worker-paid { padding: 20px 0; }
+.worker-paid .account-card-balance { margin-top: 8px; }
+.worker-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; border-top: 1px solid var(--hairline-soft); padding-top: 16px; }
+.worker-actions .btn { white-space: nowrap; }
+.worker-payment-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 0; border-top: 1px solid var(--hairline); }
+.worker-payment-details { min-width: 0; flex: 1; }
+.worker-payment-details p { margin: 6px 0 0; font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.worker-payment-row > .flex { flex-shrink: 0; }
+@media (max-width: 639px) {
+  .worker-payment-row { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .worker-payment-row > .flex { width: 100%; justify-content: flex-end; }
+  .transaction-row { flex-wrap: wrap; }
+  .transaction-row > .flex { margin-left: auto; }
+}
 .input, select.input { height: 46px; }
 .center-screen { background: #e9eee2; }
 .center-card { padding: 40px 30px; border-radius: 28px; box-shadow: 0 20px 80px #173f3510; }

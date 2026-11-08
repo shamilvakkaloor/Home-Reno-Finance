@@ -1,5 +1,5 @@
 import { onSnapshot, orderBy, query } from "../lib/fs.js";
-import { accountsCol, transactionsCol, categoriesCol, vendorsCol, transactionDoc } from "../lib/collections.js";
+import { accountsCol, transactionsCol, categoriesCol, vendorsCol, workersCol, transactionDoc } from "../lib/collections.js";
 import { formatDate, formatINR, moneyHtml, escapeHtml } from "../lib/format.js";
 import { t, getLocale } from "../lib/i18n.js";
 import { emptyState, skeletonList, badge, toast, bindSingleton } from "../lib/ui.js";
@@ -14,7 +14,7 @@ import { periodFilterHtml, wirePeriodFilter, periodRange } from "../components/p
 import { typeIcon, amountSign, amountTone } from "../lib/txMeta.js";
 
 let state = {
-  accounts: [], transactions: [], categories: [], vendors: [],
+  accounts: [], transactions: [], categories: [], vendors: [], workers: [],
   loaded: false, search: "", typeFilter: "all", statusFilter: "active",
   period: { period: "all_time" },
 };
@@ -25,7 +25,7 @@ const NEW_TX_TYPES = [
   { type: "money_received", labelKey: "action_money_received" },
   { type: "transfer", labelKey: "action_transfer_money" },
   { type: "money_returned", labelKey: "action_return_money" },
-  { type: "pay_worker", label: "Pay a worker" },
+  { type: "pay_worker", label: "Pay a worker group" },
 ];
 
 export async function render(container) {
@@ -36,7 +36,8 @@ export async function render(container) {
   const unsubTx = onSnapshot(query(transactionsCol(), orderBy("date", "desc")), (snap) => { state.transactions = snap.docs.map((d) => ({ id: d.id, ...d.data() })); state.loaded = true; repaint(); });
   const unsubCat = onSnapshot(categoriesCol(), (snap) => { state.categories = snap.docs.map((d) => ({ id: d.id, ...d.data() })); repaint(); });
   const unsubVen = onSnapshot(vendorsCol(), (snap) => { state.vendors = snap.docs.map((d) => ({ id: d.id, ...d.data() })); repaint(); });
-  [unsubAcc, unsubTx, unsubCat, unsubVen].forEach(addCleanup);
+  const unsubWorkers = onSnapshot(workersCol(), (snap) => { state.workers = snap.docs.map((d) => ({ id: d.id, ...d.data() })); repaint(); });
+  [unsubAcc, unsubTx, unsubCat, unsubVen, unsubWorkers].forEach(addCleanup);
 
   paint(container);
 }
@@ -55,7 +56,8 @@ function filteredList() {
     if (q) {
       const vendor = state.vendors.find((v) => v.id === tx.vendorId)?.name || "";
       const category = state.categories.find((c) => c.id === tx.categoryId)?.name || "";
-      const hay = `${tx.description || ""} ${tx.notes || ""} ${vendor} ${category}`.toLowerCase();
+      const group = state.workers.find((w) => w.id === tx.workerId)?.name || tx.workerName || "";
+      const hay = `${group} ${tx.description || ""} ${tx.notes || ""} ${vendor} ${category}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -63,14 +65,14 @@ function filteredList() {
 }
 
 function exportCsv(list) {
-  const header = ["Date", "Type", "Amount", "Account", "Category", "Vendor", "Description", "Status"];
+  const header = ["Date", "Type", "Amount", "Account", "Category", "Vendor", "Description", "Worker group", "Worker count", "Status"];
   const rows = list.map((tx) => {
     const account = state.accounts.find((a) => a.id === tx.accountId)?.name || "";
     const category = state.categories.find((c) => c.id === tx.categoryId)?.name || "";
     const vendor = state.vendors.find((v) => v.id === tx.vendorId)?.name || "";
-    return [formatDate(tx.date, getLocale()), tx.type, tx.amount, account, category, vendor, (tx.description || "").replace(/,/g, ";"), tx.status];
+    return [formatDate(tx.date, getLocale()), tx.type, tx.amount, account, category, vendor, tx.description || "", tx.workerId ? (state.workers.find((w) => w.id === tx.workerId)?.name || tx.workerName || "Worker group") : "", tx.workerCount ?? "", tx.status];
   });
-  const csv = [header, ...rows].map((r) => r.join(",")).join("\n");
+  const csv = [header, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -95,22 +97,27 @@ function rowHtml(tx) {
   if (from && to) bits.push(`${from.name} → ${to.name}`);
   if (category) bits.push(locale === "ml" && category.nameMl ? category.nameMl : category.name);
   if (vendor) bits.push(vendor.name);
+  const groupName = state.workers.find((w) => w.id === tx.workerId)?.name || tx.workerName || "Worker group";
+  if (tx.workerId) {
+    bits.push(groupName);
+    if (tx.workerCount != null) bits.push(`${tx.workerCount} worker${tx.workerCount === 1 ? "" : "s"}`);
+  }
 
   const admin = isAdmin();
   const deleted = tx.status === "deleted";
   return `
-    <div class="list-row ${deleted ? "deleted" : ""}" data-tx-id="${tx.id}">
+    <div class="list-row transaction-row ${deleted ? "deleted" : ""}" data-tx-id="${tx.id}">
       <span class="icon-circle tone-${deleted ? "neutral" : tone}">${iconHtml(typeIcon[tx.type] || "transactions")}</span>
       <div class="list-row-main">
         <div class="list-row-title truncate">
-          ${escapeHtml(tx.description || t("type_" + tx.type))}
+          ${escapeHtml(tx.description || (tx.workerId ? `Payment to ${groupName}` : t("type_" + tx.type)))}
           ${deleted ? badge(t("status_deleted"), "rust") : ""}
         </div>
         <div class="list-row-meta truncate">${formatDate(tx.date, locale)}${bits.length ? " · " + escapeHtml(bits.join(" · ")) : ""}</div>
       </div>
       <div class="flex items-center gap-2">
         <span class="list-row-amount amount-${tone}">${sign}${moneyHtml(tx.amount)}</span>
-        ${admin && !deleted ? `<button type="button" class="btn-icon" data-edit-tx="${tx.id}" aria-label="Edit" title="Edit">${iconHtml("pencil")}</button>` : ""}
+        ${admin && !deleted ? `<button type="button" class="btn btn-outline btn-sm" data-edit-tx="${tx.id}" aria-label="Edit" title="Edit">${iconHtml("pencil")}Edit</button>` : ""}
         ${admin && !deleted ? `<button type="button" class="btn-icon" data-delete="${tx.id}" aria-label="Delete">${iconHtml("trash")}</button>` : ""}
         ${admin && deleted ? `<button type="button" class="btn btn-outline btn-sm" data-restore="${tx.id}">${t("action_restore")}</button>` : ""}
       </div>
@@ -125,7 +132,7 @@ function paint(container) {
     <div class="flex items-center gap-2" style="flex-wrap:wrap;">
       <div class="search-wrap">
         ${iconHtml("search")}
-        <input class="input" id="tx-search" placeholder="Search description, vendor, category…" value="${escapeHtml(state.search)}" />
+        <input class="input" id="tx-search" placeholder="Search description, group, vendor, category…" value="${escapeHtml(state.search)}" />
       </div>
       <button type="button" class="btn btn-outline" id="tx-export">${iconHtml("download")}${t("action_export_csv")}</button>
       <div style="position:relative;">
@@ -145,9 +152,6 @@ function paint(container) {
         <option value="transfer">${t("type_transfer")}</option>
         <option value="expense">${t("type_expense")}</option>
         <option value="money_returned">${t("type_money_returned")}</option>
-        <option value="loan_received">${t("type_loan_received")}</option>
-        <option value="loan_repayment">${t("type_loan_repayment")}</option>
-        <option value="bill_payment">${t("type_bill_payment")}</option>
       </select>
       <select class="input" id="tx-status-filter" style="width:auto;min-width:140px;">
         <option value="active">${t("status_active")}</option>

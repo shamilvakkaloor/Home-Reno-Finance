@@ -111,8 +111,8 @@ function paint(container) {
     const d = tx.date?.toDate ? tx.date.toDate() : new Date(tx.date);
     const key = d.toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
     if (!recVsExp[key]) recVsExp[key] = { received: 0, spent: 0 };
-    if (tx.type === "money_received" || tx.type === "loan_received") recVsExp[key].received += tx.amount;
-    if (tx.type === "expense" || tx.type === "bill_payment") recVsExp[key].spent += tx.amount;
+    if (tx.type === "money_received") recVsExp[key].received += tx.amount;
+    if (tx.type === "expense") recVsExp[key].spent += tx.amount;
   }
 
   const totalSpentAll = totalExpenses(active);

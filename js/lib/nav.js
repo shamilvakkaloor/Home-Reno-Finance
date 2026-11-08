@@ -6,8 +6,6 @@ export const primaryNav = [
 
 export const secondaryNav = [
   { path: "accounts", labelKey: "nav_accounts", icon: "wallet" },
-  { path: "loans", labelKey: "nav_loans", icon: "handCoins" },
-  { path: "bills", labelKey: "nav_bills", icon: "receipt" },
   { path: "vendors", labelKey: "nav_vendors", icon: "store" },
   { path: "workers", labelKey: "nav_workers", icon: "hardHat" },
   { path: "reports", labelKey: "nav_reports", icon: "bar" },

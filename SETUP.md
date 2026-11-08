@@ -181,14 +181,9 @@ Delete it (admin only) from the Transactions list and add a corrected one.
 Deletes are soft — the record isn't gone, it's marked deleted and can be
 restored from **Audit history**.
 
-**How do I add a loan or pay one back?**
-**Loans** page → Add loan (this also records the money landing in an
-account). When it's time to repay, open the loan and click "Loan repayment".
 
-**How do I track a bill I haven't fully paid yet?**
-**Bills** page → Add bill with the total amount. Record partial or full
-payments against it as you pay; status moves Unpaid → Partial → Paid
-automatically.
+**How do I pay a worker group?**
+Open **Worker groups**, add a team (such as Concrete workers), then choose **Pay group**. Enter the total amount, date and account. Worker count and description are optional. Use **View payments → Edit** to add those details to older payments. No work logs or per-person rates are needed.
 
 **Can I see everything in Malayalam?**
 Yes — the language toggle is in the top bar (desktop) — tap it to switch

@@ -1,6 +1,6 @@
 import { onSnapshot, getDocs } from "../lib/fs.js";
 import {
-  accountsCol, transactionsCol, categoriesCol, vendorsCol, loansCol, billsCol,
+  accountsCol, transactionsCol, categoriesCol, vendorsCol,
   workersCol, sourcesCol, categoryBudgetsCol, phasesCol, settingsDoc,
 } from "../lib/collections.js";
 import { computeAccountBalances, reconcile } from "../lib/ledger.js";
@@ -32,15 +32,15 @@ export async function render(container) {
 function repaint() { if (currentContainer) paint(currentContainer); }
 
 async function downloadJson() {
-  const [accSnap, txSnap, catSnap, srcSnap, venSnap, loanSnap, billSnap, wkSnap, budSnap] = await Promise.all([
+  const [accSnap, txSnap, catSnap, srcSnap, venSnap, wkSnap, budSnap] = await Promise.all([
     getDocs(accountsCol()), getDocs(transactionsCol()), getDocs(categoriesCol()), getDocs(sourcesCol()),
-    getDocs(vendorsCol()), getDocs(loansCol()), getDocs(billsCol()), getDocs(workersCol()), getDocs(categoryBudgetsCol()),
+    getDocs(vendorsCol()), getDocs(workersCol()), getDocs(categoryBudgetsCol()),
   ]);
   const map = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   const backup = {
     exportedAt: new Date().toISOString(), settings: state.settings,
     accounts: map(accSnap), transactions: map(txSnap), categories: map(catSnap), moneySources: map(srcSnap),
-    vendors: map(venSnap), loans: map(loanSnap), bills: map(billSnap), workers: map(wkSnap), categoryBudgets: map(budSnap),
+    vendors: map(venSnap), workers: map(wkSnap), categoryBudgets: map(budSnap),
   };
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -104,12 +104,12 @@ function paint(container) {
     .sort((a, b) => b.value - a.value)
     .slice(0, 10);
 
-  // Cost by construction phase — every expense and bill payment that's been
+  // Cost by construction phase — every expense that's been
   // tagged with a phase, split into labor (worker payments) vs. materials
   // (everything else) so the labor-cost-per-phase question is answerable.
   const byPhase = {};
   for (const tx of filtered) {
-    if ((tx.type !== "expense" && tx.type !== "bill_payment") || !tx.phaseId) continue;
+    if (tx.type !== "expense" || !tx.phaseId) continue;
     if (!byPhase[tx.phaseId]) byPhase[tx.phaseId] = { labor: 0, materials: 0 };
     if (tx.workerId) byPhase[tx.phaseId].labor += tx.amount;
     else byPhase[tx.phaseId].materials += tx.amount;
@@ -122,7 +122,7 @@ function paint(container) {
     })
     .sort((a, b) => b.total - a.total);
   const untaggedPhaseSpend = filtered
-    .filter((tx) => (tx.type === "expense" || tx.type === "bill_payment") && !tx.phaseId)
+    .filter((tx) => tx.type === "expense" && !tx.phaseId)
     .reduce((s, tx) => s + tx.amount, 0);
 
   const balances = computeAccountBalances(state.accounts, active);

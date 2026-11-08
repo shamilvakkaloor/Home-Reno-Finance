@@ -109,7 +109,7 @@ function paint() {
     <div class="mt-3">
       ${listSection({ title: "Construction phases", items: phases, newInputId: "new-phase", newMlInputId: "new-phase-ml", addBtnId: "add-phase", placeholder: "Phase (e.g. Foundation)", hasMl: true, entityType: "phase" })}
     </div>
-    <p class="text-xs text-concrete mt-2">Phases show up when logging an expense, a bill payment, or a worker payment, so you can see labor + material cost broken down by construction stage in Reports.</p>
+    <p class="text-xs text-concrete mt-2">Phases show up when logging an expense or a worker group payment, so you can see labor + material cost broken down by construction stage in Reports.</p>
   `;
 
   mountedContainer.querySelector("#seed-btn")?.addEventListener("click", async () => {

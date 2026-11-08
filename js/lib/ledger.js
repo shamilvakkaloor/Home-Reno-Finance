@@ -18,12 +18,9 @@ export function computeAccountBalances(accounts, transactions) {
   for (const t of active) {
     switch (t.type) {
       case "money_received":
-      case "loan_received":
         bump(t.accountId, t.amount, 0);
         break;
       case "expense":
-      case "loan_repayment":
-      case "bill_payment":
         bump(t.accountId, 0, t.amount);
         break;
       case "money_returned":
@@ -58,13 +55,13 @@ export function totalHeld(balances) {
 export function totalReceived(transactions, accounts = []) {
   const initialFund = accounts.reduce((sum, account) => sum + (account.openingBalance ?? 0), 0);
   return transactions
-    .filter((t) => t.status === "active" && (t.type === "money_received" || t.type === "loan_received"))
+    .filter((t) => t.status === "active" && (t.type === "money_received"))
     .reduce((sum, t) => sum + t.amount, initialFund);
 }
 
 export function totalExpenses(transactions) {
   return transactions
-    .filter((t) => t.status === "active" && (t.type === "expense" || t.type === "bill_payment"))
+    .filter((t) => t.status === "active" && (t.type === "expense"))
     .reduce((sum, t) => sum + t.amount, 0);
 }
 
@@ -73,13 +70,10 @@ export function reconcile(accounts, transactions) {
   const held = totalHeld(balances);
   const active = transactions.filter((t) => t.status === "active");
   const received = active
-    .filter((t) => t.type === "money_received" || t.type === "loan_received")
+    .filter((t) => t.type === "money_received")
     .reduce((s, t) => s + t.amount, 0);
   const spent = active
-    .filter((t) => t.type === "expense" || t.type === "bill_payment")
-    .reduce((s, t) => s + t.amount, 0);
-  const loanRepaid = active
-    .filter((t) => t.type === "loan_repayment")
+    .filter((t) => t.type === "expense")
     .reduce((s, t) => s + t.amount, 0);
   // Adjustments move money in/out of an account directly (see
   // computeAccountBalances above), so they must be folded into the expected
@@ -88,7 +82,7 @@ export function reconcile(accounts, transactions) {
     .filter((t) => t.type === "adjustment")
     .reduce((s, t) => s + t.amount, 0);
   const openingSum = accounts.reduce((s, a) => s + a.openingBalance, 0);
-  const expected = openingSum + received - spent - loanRepaid + adjusted;
+  const expected = openingSum + received - spent + adjusted;
   const drift = Math.round((held - expected) * 100) / 100;
   return { held, expected, drift, balanced: Math.abs(drift) < 0.01 };
 }

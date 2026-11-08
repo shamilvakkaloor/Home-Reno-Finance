@@ -24,17 +24,11 @@ export const sourceDoc = (id) => docIn("moneySources", id);
 export const vendorsCol = () => col("vendors");
 export const vendorDoc = (id) => docIn("vendors", id);
 
-export const loansCol = () => col("loans");
-export const loanDoc = (id) => docIn("loans", id);
 
-export const billsCol = () => col("bills");
-export const billDoc = (id) => docIn("bills", id);
 
 export const workersCol = () => col("workers");
 export const workerDoc = (id) => docIn("workers", id);
 
-export const workRecordsCol = () => col("workerWorkRecords");
-export const workRecordDoc = (id) => docIn("workerWorkRecords", id);
 
 export const categoryBudgetsCol = () => col("categoryBudgets");
 export const categoryBudgetDoc = (categoryId) => docIn("categoryBudgets", categoryId);

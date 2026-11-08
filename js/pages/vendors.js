@@ -1,5 +1,5 @@
 import { onSnapshot, Timestamp } from "../lib/fs.js";
-import { vendorsCol, transactionsCol, billsCol, vendorDoc } from "../lib/collections.js";
+import { vendorsCol, transactionsCol, vendorDoc } from "../lib/collections.js";
 import { formatINR, escapeHtml } from "../lib/format.js";
 import { t } from "../lib/i18n.js";
 import { emptyState, skeletonList, badge, openDialog, toast } from "../lib/ui.js";
@@ -8,31 +8,26 @@ import { addCleanup } from "../lib/router.js";
 import { currentActor, isAdmin } from "../lib/auth.js";
 import { createWithAudit, updateWithAudit, hardDeleteWithAudit } from "../lib/crud.js";
 
-let state = { vendors: [], transactions: [], bills: [], loaded: false };
+let state = { vendors: [], transactions: [], loaded: false };
 let currentContainer = null;
 
 export async function render(container) {
   currentContainer = container;
   const unsubVen = onSnapshot(vendorsCol(), (snap) => { state.vendors = snap.docs.map((d) => ({ id: d.id, ...d.data() })); state.loaded = true; repaint(); });
   const unsubTx = onSnapshot(transactionsCol(), (snap) => { state.transactions = snap.docs.map((d) => ({ id: d.id, ...d.data() })); repaint(); });
-  const unsubBills = onSnapshot(billsCol(), (snap) => { state.bills = snap.docs.map((d) => ({ id: d.id, ...d.data() })); repaint(); });
-  [unsubVen, unsubTx, unsubBills].forEach(addCleanup);
+  [unsubVen, unsubTx].forEach(addCleanup);
   paint(container);
 }
 
 function repaint() { if (currentContainer) paint(currentContainer); }
 
 function statsFor(vendorId) {
-  let total = 0, count = 0, pending = 0;
+  let total = 0, count = 0;
   for (const tx of state.transactions) {
     if (tx.status !== "active" || tx.vendorId !== vendorId) continue;
     total += tx.amount; count += 1;
   }
-  for (const bill of state.bills) {
-    if (bill.vendorId !== vendorId || bill.status === "paid" || bill.status === "cancelled") continue;
-    pending += bill.remainingAmount;
-  }
-  return { total, count, pending };
+  return { total, count };
 }
 
 function vendorCard(v, admin) {
@@ -53,7 +48,6 @@ function vendorCard(v, admin) {
         </div>
       </div>
       <div class="flex justify-between text-sm mt-3"><span class="text-concrete">${s.count} transactions</span><span class="font-ledger font-medium">${formatINR(s.total)}</span></div>
-      ${s.pending > 0 ? `<p class="font-ledger text-xs mt-1" style="color:var(--amber);">${formatINR(s.pending)} pending</p>` : ""}
     </div></div>`;
 }
 
@@ -74,7 +68,7 @@ function paint(container) {
     btn.addEventListener("click", () => {
       const vendor = state.vendors.find((v) => v.id === btn.getAttribute("data-delete-ven"));
       if (!vendor) return;
-      const ok = window.confirm(`Delete "${vendor.name}" permanently? This can't be undone. Existing transactions/bills that reference it are unaffected.`);
+      const ok = window.confirm(`Delete "${vendor.name}" permanently? This can't be undone. Existing transactions that reference it are unaffected.`);
       if (!ok) return;
       const actor = currentActor();
       if (!actor) return;
